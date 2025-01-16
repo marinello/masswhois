@@ -4,6 +4,7 @@ import socket
 from collections import Counter
 import sys
 from typing import Dict, List, Tuple
+import requests
 
 def validate_ip(ip_str: str) -> bool:
     """
@@ -14,6 +15,34 @@ def validate_ip(ip_str: str) -> bool:
         return True
     except ValueError:
         return False
+
+
+def get_ip_info(ip_address: str) -> Tuple[str, str]:
+
+    try:
+        hostname = socket.gethostbyaddr(ip_address)[0]
+    except (socket.herror, socket.gaierror):
+        hostname = None
+    
+    # Get country code using ip-api.com (free, no API key required)
+    try:
+        response = requests.get(f'http://ip-api.com/json/{ip_address}', timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 'success':
+                country_code = data.get('countryCode')
+            else:
+                print(f"IP geolocation failed: {data.get('message', 'Unknown error')}")
+                country_code = None
+        else:
+            print(f"Failed to get country info. Status code: {response.status_code}")
+            country_code = None
+    except requests.RequestException as e:
+        print(f"Error getting country info: {str(e)}")
+        country_code = None
+    
+    return hostname, country_code
+
 
 def get_whois_info(ip: str) -> Tuple[str, str]:
     """
@@ -52,7 +81,8 @@ def process_ip_list(filename: str) -> Dict[str, int]:
             
             for ip in ip_list:
                 if validate_ip(ip):
-                    owner, country = get_whois_info(ip)
+                    #owner, country = get_whois_info(ip)
+                    owner, country = get_ip_info(ip)
                     if country != "Unknown":
                         country_stats[country] += 1
                     processed_ips += 1
